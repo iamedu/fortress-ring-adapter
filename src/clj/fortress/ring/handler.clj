@@ -1,6 +1,10 @@
 (ns fortress.ring.handler
+  (:require [clojure.tools.logging :as log])
   (:import [io.netty.channel ChannelHandler$Sharable SimpleChannelInboundHandler]
-           [io.netty.handler.codec.http HttpServerCodec HttpObjectAggregator]))
+           [io.netty.handler.codec.http HttpServerCodec HttpObjectAggregator]
+           [io.netty.handler.logging LoggingHandler]))
+
+(def debug-request (atom false))
 
 (gen-class :name ^{ChannelHandler$Sharable {}}
                  fortress.ring.handler.FortressHttpRequestHandler
@@ -8,7 +12,7 @@
            :prefix "fhandler-")
 
 (defn fhandler-channelRead0 [this ctx request]
-  (println (.headers request)))
+  )
 
 (gen-class :name ^{ChannelHandler$Sharable {}}
                  fortress.ring.handler.FortressInitializer
@@ -29,4 +33,7 @@
       pipeline
       (.addLast "codec" (HttpServerCodec.))
       (.addLast "aggregator" (HttpObjectAggregator. max-size))
+      (if @debug-request
+        (.addLast "logger" (LoggingHandler.)))   
       (.addLast "http-handler" (fortress.ring.handler.FortressHttpRequestHandler.)))))
+
