@@ -1,13 +1,21 @@
 (ns fortress.ring.server
   (:use fortress.util.clojure)
   (:require [clojure.tools.logging :as log]
-            [fortress.ring.handler :as fhandler])
+            [fortress.ring.handler :as fhandler]
+            [fortress.ring.writers :as writers])
   (:import [io.netty.bootstrap ServerBootstrap]
            [io.netty.channel.nio NioEventLoopGroup]
            [io.netty.channel.socket.nio NioServerSocketChannel]
            [fortress.ring.handler FortressInitializer]
            [java.net InetSocketAddress]
            [java.util.concurrent ThreadFactory]))
+
+(def default-options {:threads 0
+                      :host "0.0.0.0"
+                      :port 3000
+                      :ssl? false
+                      :zero-copy? false
+                      :thread-prefix "fortress-http"})
 
 (defn- random-thread-name [prefix]
   (str prefix "-" (random-guid-str)))
@@ -17,14 +25,17 @@
     (newThread [thunk]
       (Thread. thunk (random-thread-name thread-name-prefix)))))
 
-(defn create-channel [{:keys [port threads thread-prefix host]}]
+(defn create-channel [handler {:keys [port threads thread-prefix host zero-copy?]}]
   (let [address (InetSocketAddress. host port)
         group (NioEventLoopGroup. threads
                                   (thread-factory thread-prefix))
         bootstrap (doto (ServerBootstrap.)
                     (.group group)
                     (.channel NioServerSocketChannel)
-                    (.childHandler (FortressInitializer. (.longValue Integer/MAX_VALUE))))
+                    (.childHandler (FortressInitializer.
+                                     (.longValue Integer/MAX_VALUE)
+                                     zero-copy?
+                                     handler)))
         future-channel (.bind bootstrap address)]
     (.syncUninterruptibly future-channel)
     (log/info "Channel started at port" port)
@@ -44,16 +55,11 @@
   :debug-requests - Wether to debug requests (defaults to false)"
   [handler & {:keys [debug-requests]
               :as options}]
-  (let [options (merge {:threads 0
-                        :host "0.0.0.0"
-                        :port 3000
-                        :ssl? false
-                        :thread-prefix "fortress-http"}
-                       options)]
+  (let [options (merge default-options options)]
     (reset! fhandler/debug-request debug-requests)
     (if debug-requests
       (log/info "Setting up requests debug"))
-    (create-channel options)))
+    (create-channel handler options)))
 
 (defn stop-fortress [{:keys [group channel]}]
   (-> channel

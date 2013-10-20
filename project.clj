@@ -7,5 +7,6 @@
   :source-paths  ["src/clj"]
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [io.netty/netty-all "4.0.10.Final"]
-                 [org.clojure/tools.logging "0.2.6"]]
+                 [org.clojure/tools.logging "0.2.6"]
+                 [org.slf4j/slf4j-api "1.7.5"]]
   :aot [fortress.ring.handler])

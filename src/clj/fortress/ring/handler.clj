@@ -1,5 +1,8 @@
 (ns fortress.ring.handler
-  (:require [clojure.tools.logging :as log])
+  (:require [clojure.tools.logging :as log]
+            [fortress.ring.writers :as writers]
+            [fortress.ring.request :as request]
+            [fortress.ring.response :as response]) 
   (:import [io.netty.channel ChannelHandler$Sharable SimpleChannelInboundHandler]
            [io.netty.handler.codec.http HttpServerCodec HttpObjectAggregator]
            [io.netty.handler.logging LoggingHandler]))
@@ -7,33 +10,49 @@
 (def debug-request (atom false))
 
 (gen-class :name ^{ChannelHandler$Sharable {}}
-                 fortress.ring.handler.FortressHttpRequestHandler
+           fortress.ring.handler.FortressHttpRequestHandler
            :extends io.netty.channel.SimpleChannelInboundHandler
+           :state state
+           :init "init"
+           :constructors {[Boolean clojure.lang.IFn] []}
            :prefix "fhandler-")
 
+(defn fhandler-init [zero-copy? handler]
+  [[] (atom {:zero-copy? zero-copy?
+             :handler handler})])
+
 (defn fhandler-channelRead0 [this ctx request]
-  )
+  (let [{:keys [zero-copy? handler]} @(.state this)]
+    (binding [writers/*zero-copy* zero-copy?]
+      (->> request
+           (request/create-ring-request ctx)
+           (handler)
+           (response/write-ring-response ctx)))))
 
 (gen-class :name ^{ChannelHandler$Sharable {}}
-                 fortress.ring.handler.FortressInitializer
+           fortress.ring.handler.FortressInitializer
            :extends io.netty.channel.ChannelInitializer
            :state state
            :init "init"
-           :constructors {[Long] []}
+           :constructors {[Long Boolean clojure.lang.IFn] []}
            :prefix "finit-")
 
-(defn finit-init [max-size]
-  [[] (atom {:max-size max-size})])
+(defn finit-init [max-size zero-copy? handler]
+  [[] (atom {:max-size max-size
+             :zero-copy? zero-copy?
+             :handler handler})])
 
 (defn finit-initChannel [this ch]
   (let [pipeline (.pipeline ch)
         state (.state this)
-        max-size (:max-size @state)]
+        {:keys [max-size handler zero-copy?]} @state]
     (doto
       pipeline
       (.addLast "codec" (HttpServerCodec.))
       (.addLast "aggregator" (HttpObjectAggregator. max-size))
       (if @debug-request
         (.addLast "logger" (LoggingHandler.)))   
-      (.addLast "http-handler" (fortress.ring.handler.FortressHttpRequestHandler.)))))
+      (.addLast "http-handler" (fortress.ring.handler.FortressHttpRequestHandler.
+                                 zero-copy?
+                                 handler)))))
 
