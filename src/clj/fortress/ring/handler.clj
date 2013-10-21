@@ -55,10 +55,10 @@
   (let [pipeline (.pipeline ch)
         state (.state this)
         {:keys [max-size handler zero-copy?]} @state]
+    (if @debug-request
+      (.addLast pipeline "logger" (LoggingHandler.)))
     (doto
       pipeline
-      (if @debug-request
-        (.addLast "logger" (LoggingHandler.)))   
       (.addLast "codec" (HttpServerCodec.))
       (.addLast "aggregator" (HttpObjectAggregator. max-size))
       (.addLast "chunkedWriter"  (ChunkedWriteHandler.))
