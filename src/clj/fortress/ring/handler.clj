@@ -29,6 +29,11 @@
   [[] (atom {:zero-copy? zero-copy?
              :handler handler})])
 
+(defn fhandler-exceptionCaught [this ctx cause]
+  (log/error cause "Error occurred in Http I/O thread")
+  (when (-> ctx (.channel) (.isOpen))
+    (response/write-ring-response ctx {:status 500})))
+
 (defn fhandler-channelRead0 [this ctx request]
   (let [{:keys [zero-copy? handler]} @(.state this)]
     (binding [writers/*zero-copy* zero-copy?]
