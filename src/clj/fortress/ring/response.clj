@@ -4,12 +4,13 @@
             HttpResponseStatus
             HttpVersion
             HttpHeaders
-            DefaultFullHttpResponse]
+            DefaultFullHttpResponse
+            DefaultFullHttpRequest]
            [io.netty.channel
             ChannelHandlerContext
             ChannelFutureListener]))
 
-(defn write-ring-response [^ChannelHandlerContext context ring-response]
+(defn write-ring-response [^DefaultFullHttpRequest request ^ChannelHandlerContext context ring-response]
   (let [status (HttpResponseStatus/valueOf (ring-response :status 200))
         {:keys [body headers]} ring-response]
-    (w/write body headers HttpVersion/HTTP_1_1 status (.channel context))))
+    (w/write body headers (.getProtocolVersion request) status (.channel context))))

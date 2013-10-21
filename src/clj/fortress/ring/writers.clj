@@ -1,5 +1,6 @@
 (ns fortress.ring.writers
-  (:require [clojure.java.io :as io])
+  (:require [clojure.tools.logging :as log]
+            [clojure.java.io :as io])
   (:import [io.netty.channel Channel ChannelFutureListener ChannelFuture DefaultFileRegion]
            [io.netty.handler.codec.http HttpResponse DefaultHttpResponse DefaultFullHttpResponse HttpHeaders HttpHeaders$Names]
            [io.netty.handler.stream ChunkedStream ChunkedFile]
@@ -34,7 +35,10 @@
     (.addListener future ChannelFutureListener/CLOSE)))
 
 (defn- add-close-stream-listener [^ChannelFuture future ^InputStream stream]
-  (let [listener (reify ChannelFutureListener (operationComplete [_ _] (.close stream)))]
+  (let [listener (reify ChannelFutureListener (operationComplete [_ f]
+                                                (if-not (.isSuccess f)
+                                                  (log/error (.cause f) "Error when handling stream response"))
+                                                (.close stream)))]
     (.addListener future listener)
     (.addListener future ChannelFutureListener/CLOSE)))
 

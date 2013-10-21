@@ -3,11 +3,13 @@
             [fortress.ring.writers :as writers]
             [fortress.ring.request :as request]
             [fortress.ring.response :as response]) 
-  (:import [io.netty.channel ChannelHandler$Sharable SimpleChannelInboundHandler]
+  (:import [fortress.ring.spdy DefaultServerProvider DefaultSpdyOrHttpChooser]
+           [io.netty.channel ChannelHandler$Sharable SimpleChannelInboundHandler]
            [io.netty.handler.stream ChunkedWriteHandler]
            [io.netty.handler.codec.http HttpServerCodec HttpObjectAggregator HttpHeaders]
            [io.netty.handler.logging LoggingHandler]
            [io.netty.handler.ssl SslHandler]
+           [org.eclipse.jetty.npn NextProtoNego]
            [javax.net.ssl SSLContext]))
 
 (def debug-request (atom false))
@@ -37,13 +39,14 @@
     (response/write-ring-response ctx {:status 500})))
 
 (defn fhandler-channelRead0 [this ctx request]
+  (log/info "Aqui estoy si!")
   (let [{:keys [zero-copy? handler]} @(.state this)]
     (binding [writers/*zero-copy* zero-copy?]
       (->> request
            (request/create-ring-request ctx)
            (handler)
            (add-keep-alive request)
-           (response/write-ring-response ctx)))))
+           (response/write-ring-response request ctx)))))
 
 (gen-class :name ^{ChannelHandler$Sharable {}}
            fortress.ring.handler.FortressInitializer
@@ -71,13 +74,22 @@
     (when (and ssl? ssl-context)
       (let [engine (.createSSLEngine ssl-context)]
         (.setUseClientMode engine false)
-        (.addFirst pipeline "ssl" (SslHandler. engine))))
-    (doto
-      pipeline
-      (.addLast "codec" (HttpServerCodec.))
-      (.addLast "aggregator" (HttpObjectAggregator. max-size))
-      (.addLast "chunkedWriter"  (ChunkedWriteHandler.))
-      (.addLast "http-handler" (fortress.ring.handler.FortressHttpRequestHandler.
-                                 zero-copy?
-                                 handler)))))
+        (NextProtoNego/put engine (DefaultServerProvider.))
+        (.addLast pipeline "ssl" (SslHandler. engine))
+        (.addLast pipeline "chooser" (DefaultSpdyOrHttpChooser.
+                                       (fortress.ring.handler.FortressHttpRequestHandler.
+                                         zero-copy?
+                                         handler)
+                                       Integer/MAX_VALUE
+                                       Integer/MAX_VALUE))))
+
+    (when-not (and ssl? ssl-context)
+      (doto
+        pipeline
+        (.addLast "codec" (HttpServerCodec.))
+        (.addLast "aggregator" (HttpObjectAggregator. max-size))
+        (.addLast "chunkedWriter"  (ChunkedWriteHandler.))
+        (.addLast "http-handler" (fortress.ring.handler.FortressHttpRequestHandler.
+                                   zero-copy?
+                                   handler))))))
 

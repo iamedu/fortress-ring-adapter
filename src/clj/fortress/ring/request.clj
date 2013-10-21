@@ -57,7 +57,7 @@
       s/lower-case)))
 
 (defn content-length [^DefaultFullHttpRequest request]
-  (let [length (HttpHeaders/getContentLength request)]
+  (let [length (HttpHeaders/getContentLength request 0)]
     (when (> length 0) length)))
 
 (defn character-encoding [^DefaultFullHttpRequest request]

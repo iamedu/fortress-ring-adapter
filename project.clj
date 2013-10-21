@@ -16,4 +16,6 @@
                                   [clojure-complete "0.2.3"]
                                   [ch.qos.logback/logback-core "1.0.13"]
                                   [ch.qos.logback/logback-classic "1.0.13"]]}}
-  :aot [fortress.ring.handler])
+  :jvm-opts ["-Xbootclasspath/p:lib/npn-boot-1.1.6.v20130911.jar"]
+  :aot [fortress.ring.handler
+        fortress.ring.spdy])
