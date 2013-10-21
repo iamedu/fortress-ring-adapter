@@ -90,7 +90,7 @@
       (HttpHeaders/setContentLength response (.length body))
       (.write channel response)
       (-> (.writeAndFlush channel response-body)
-          (add-close-listener response)))))
+          (.addListener ChannelFutureListener/CLOSE)))))
 
 (extend-type nil
   ResponseWriter
