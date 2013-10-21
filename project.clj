@@ -8,7 +8,12 @@
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [io.netty/netty-all "4.0.10.Final"]
                  [org.clojure/tools.logging "0.2.6"]
-                 [org.slf4j/slf4j-api "1.7.5"]]
+                 [org.slf4j/slf4j-api "1.7.5"]
+                 [org.javassist/javassist "3.18.1-GA"]]
   :profiles {:dev {:dependencies [[clj-http "0.7.7"]
-                                  [compojure "1.1.5"]]}}
+                                  [compojure "1.1.5"]
+                                  [org.clojure/tools.nrepl "0.2.3"]
+                                  [clojure-complete "0.2.3"]
+                                  [ch.qos.logback/logback-core "1.0.13"]
+                                  [ch.qos.logback/logback-classic "1.0.13"]]}}
   :aot [fortress.ring.handler])

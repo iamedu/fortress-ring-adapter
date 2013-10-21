@@ -6,7 +6,9 @@
   (:import [io.netty.channel ChannelHandler$Sharable SimpleChannelInboundHandler]
            [io.netty.handler.stream ChunkedWriteHandler]
            [io.netty.handler.codec.http HttpServerCodec HttpObjectAggregator HttpHeaders]
-           [io.netty.handler.logging LoggingHandler]))
+           [io.netty.handler.logging LoggingHandler]
+           [io.netty.handler.ssl SslHandler]
+           [javax.net.ssl SSLContext]))
 
 (def debug-request (atom false))
 
@@ -48,20 +50,28 @@
            :extends io.netty.channel.ChannelInitializer
            :state state
            :init "init"
-           :constructors {[Long Boolean clojure.lang.IFn] []}
+           :constructors {[javax.net.ssl.SSLContext Long Boolean Boolean clojure.lang.IFn] []}
            :prefix "finit-")
 
-(defn finit-init [max-size zero-copy? handler]
+(defn finit-init [ssl-context max-size zero-copy? ssl? handler]
   [[] (atom {:max-size max-size
              :zero-copy? zero-copy?
+             :ssl? ssl?
+             :ssl-context ssl-context
              :handler handler})])
 
 (defn finit-initChannel [this ch]
   (let [pipeline (.pipeline ch)
         state (.state this)
-        {:keys [max-size handler zero-copy?]} @state]
+        {:keys [max-size handler zero-copy? ssl? ssl-context]} @state]
+
     (if @debug-request
       (.addLast pipeline "logger" (LoggingHandler.)))
+
+    (when (and ssl? ssl-context)
+      (let [engine (.createSSLEngine ssl-context)]
+        (.setUseClientMode engine false)
+        (.addFirst pipeline "ssl" (SslHandler. engine))))
     (doto
       pipeline
       (.addLast "codec" (HttpServerCodec.))
