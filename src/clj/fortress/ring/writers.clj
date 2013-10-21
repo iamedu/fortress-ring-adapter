@@ -14,12 +14,12 @@
 
 (def charset-pattern
   "Regex to extract the charset from a content-type header.
-See: http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.7"
+  See: http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.7"
   #";\s*charset=\"?([^\s;\"]+)\"?")
 
 (defn ^Charset get-charset
   "Extracts the charset from the content-type header, if present.
-Returns nil if the charset cannot be discovered."
+  Returns nil if the charset cannot be discovered."
   [headers]
   (if-let [content-type (find headers #(= "content-type" (.toLowerCase %)))]
     (if-let [[_ charset] (re-find charset-pattern content-type)]
@@ -39,8 +39,9 @@ Returns nil if the charset cannot be discovered."
     (.addListener future ChannelFutureListener/CLOSE)))
 
 (defn- write-response [^HttpResponse response ^Channel channel]
-  (-> (.writeAndFlush channel response)
-    (add-close-listener response)))
+  (-> (.write channel response)
+      (add-close-listener response))
+  (.flush channel))
 
 (defn set-headers [^DefaultHttpResponse response headers]
   (doseq [[key values] headers]
@@ -60,37 +61,41 @@ Returns nil if the charset cannot be discovered."
       (HttpHeaders/setContentLength response (.readableBytes buffer))
       (write-response response channel))))
 
-;; (extend-type ISeq
-;;   ResponseWriter
-;;   (write [body ^HttpResponse response ^Channel channel]
-;;     (write (apply str body) response channel)))
-;; 
-;; (extend-type InputStream
-;;   ResponseWriter
-;;   (write [body ^HttpResponse response ^Channel channel]
-;;     (.write channel response)
-;;     (-> (.write channel (ChunkedStream. body))
-;;       (add-close-stream-listener body))))
-;; 
-;; (defn file-body [file]
-;;   (let [random-access-file (RandomAccessFile. file "r")]
-;;     (if *zero-copy*
-;;       (DefaultFileRegion. (.getChannel random-access-file) 0 (.length file))
-;;       (ChunkedFile. random-access-file))))
-;; 
-;; (extend-type File
-;;   ResponseWriter
-;;   (write [body ^HttpResponse response ^Channel channel]
-;;     (let [response-body (file-body body)]
-;;       (.setHeader response "Zero-Copy" *zero-copy*)
-;;       (HttpHeaders/setContentLength response (.length body))
-;; 
-;;       (.write channel response)
-;;       (add-close-listener (.write channel response-body) response))))
-;; 
-;; (extend-type nil
-;;   ResponseWriter
-;;   (write [body ^HttpResponse response ^Channel channel]
-;;     (HttpHeaders/setContentLength response 0)
-;;     (write-response response channel)))
+(extend-type ISeq
+  ResponseWriter
+  (write [body headers version status ^Channel channel]
+    (write (apply str body) headers version status channel)))
+
+(extend-type InputStream
+  ResponseWriter
+  (write [body headers version status ^Channel channel]
+    (let [response (DefaultHttpResponse. version status)]
+      (set-headers response headers)
+      (.write channel response)
+      (-> (.writeAndFlush channel (ChunkedStream. body))
+          (add-close-stream-listener body)))))
+
+(defn file-body [file]
+  (let [random-access-file (RandomAccessFile. file "r")]
+    (if *zero-copy*
+      (DefaultFileRegion. (.getChannel random-access-file) 0 (.length file))
+      (ChunkedFile. random-access-file))))
+
+(extend-type File
+  ResponseWriter
+  (write [body headers version status ^Channel channel]
+    (let [response (DefaultHttpResponse. version status)
+          response-body (file-body body)]
+      (set-headers response (merge headers {"Zero-Copy" *zero-copy*}))
+      (HttpHeaders/setContentLength response (.length body))
+      (.write channel response)
+      (-> (.writeAndFlush channel response-body)
+          (add-close-listener response)))))
+
+(extend-type nil
+  ResponseWriter
+  (write [body headers version status ^Channel channel]
+    (let [response (DefaultHttpResponse. version status)]
+      (HttpHeaders/setContentLength response 0)
+      (write-response response channel))))
 

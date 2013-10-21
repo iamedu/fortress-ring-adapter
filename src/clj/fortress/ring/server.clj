@@ -4,6 +4,7 @@
             [fortress.ring.handler :as fhandler]
             [fortress.ring.writers :as writers])
   (:import [io.netty.bootstrap ServerBootstrap]
+           [io.netty.channel ChannelOption]
            [io.netty.channel.nio NioEventLoopGroup]
            [io.netty.channel.socket.nio NioServerSocketChannel]
            [fortress.ring.handler FortressInitializer]
@@ -32,6 +33,7 @@
         bootstrap (doto (ServerBootstrap.)
                     (.group group)
                     (.channel NioServerSocketChannel)
+                    (.childOption ChannelOption/SO_KEEPALIVE true)
                     (.childHandler (FortressInitializer.
                                      (.longValue Integer/MAX_VALUE)
                                      zero-copy?

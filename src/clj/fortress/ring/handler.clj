@@ -4,10 +4,18 @@
             [fortress.ring.request :as request]
             [fortress.ring.response :as response]) 
   (:import [io.netty.channel ChannelHandler$Sharable SimpleChannelInboundHandler]
-           [io.netty.handler.codec.http HttpServerCodec HttpObjectAggregator]
+           [io.netty.handler.stream ChunkedWriteHandler]
+           [io.netty.handler.codec.http HttpServerCodec HttpObjectAggregator HttpHeaders]
            [io.netty.handler.logging LoggingHandler]))
 
 (def debug-request (atom false))
+
+(defn- add-keep-alive [http-request ring-response]
+  (if (HttpHeaders/isKeepAlive http-request)
+    (do
+      (assoc-in ring-response [:headers "connection"] "keep-alive"))
+    ring-response))
+
 
 (gen-class :name ^{ChannelHandler$Sharable {}}
            fortress.ring.handler.FortressHttpRequestHandler
@@ -27,6 +35,7 @@
       (->> request
            (request/create-ring-request ctx)
            (handler)
+           (add-keep-alive request)
            (response/write-ring-response ctx)))))
 
 (gen-class :name ^{ChannelHandler$Sharable {}}
@@ -48,10 +57,11 @@
         {:keys [max-size handler zero-copy?]} @state]
     (doto
       pipeline
-      (.addLast "codec" (HttpServerCodec.))
-      (.addLast "aggregator" (HttpObjectAggregator. max-size))
       (if @debug-request
         (.addLast "logger" (LoggingHandler.)))   
+      (.addLast "codec" (HttpServerCodec.))
+      (.addLast "aggregator" (HttpObjectAggregator. max-size))
+      (.addLast "chunkedWriter"  (ChunkedWriteHandler.))
       (.addLast "http-handler" (fortress.ring.handler.FortressHttpRequestHandler.
                                  zero-copy?
                                  handler)))))
