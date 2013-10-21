@@ -13,7 +13,7 @@
 (defn- add-keep-alive [http-request ring-response]
   (if (HttpHeaders/isKeepAlive http-request)
     (do
-      (assoc-in ring-response [:headers "connection"] "keep-alive"))
+      (assoc-in ring-response [:headers "Connection"] "Keep-Alive"))
     ring-response))
 
 
