@@ -1,6 +1,6 @@
 (defproject fortress-ring-adapter "0.1.0-SNAPSHOT"
   :description "Ring adapter for netty 4 (part of the fortress distribution)"
-  :url "http://example.com/FIXME"
+  :url "https://github.com/iamedu/fortress-ring-adapter"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :java-source-paths  ["src/java"]
