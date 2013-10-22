@@ -99,7 +99,7 @@
 (extend-type nil
   ResponseWriter
   (write [body headers version status ^Channel channel]
-    (let [response (DefaultHttpResponse. version status)]
+    (let [response (DefaultFullHttpResponse. version status Unpooled/EMPTY_BUFFER)]
       (HttpHeaders/setContentLength response 0)
       (write-response response channel))))
 

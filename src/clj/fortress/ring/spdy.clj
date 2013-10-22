@@ -1,5 +1,6 @@
 (ns fortress.ring.spdy
   (:import [fortress.util NettyUtil]
+           [fortress.ring.spdy SpdyChunkedWriteHandler]
            [io.netty.handler.stream ChunkedWriteHandler]
            [org.eclipse.jetty.npn NextProtoNego]))
 
@@ -18,7 +19,7 @@
 (defn ch-addSpdyHandlers [this ctx version]
   (let [pipeline (NettyUtil/pipeline ctx)]
     (.parentAddSpdyHandlers this ctx version)
-    (.addBefore pipeline "httpRquestHandler" "chunkedWriter" (ChunkedWriteHandler.))))
+    (.addBefore pipeline "httpRquestHandler" "chunkedWriter" (SpdyChunkedWriteHandler.))))
 
 (defn ch-addHttpHandlers [this ctx]
   (let [pipeline (NettyUtil/pipeline ctx)]
@@ -53,7 +54,7 @@
     (swap! state assoc :protocol "http/1.1")))
 
 (defn sp-protocols [this]
-  [#_"spdy/3" #_"spdy/2" "http/1.1"])
+  ["spdy/3" "spdy/2" "http/1.1"])
 
 (defn sp-protocolSelected [this protocol]
   (let [state (.state this)]

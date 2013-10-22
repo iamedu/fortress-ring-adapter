@@ -15,7 +15,7 @@
                       :host "0.0.0.0"
                       :port 3000
                       :ssl? false
-                      :zero-copy? false
+                      :zero-copy? true
                       :thread-prefix "fortress-http"})
 
 (defn- random-thread-name [prefix]
@@ -32,7 +32,7 @@
                       (.childHandler (FortressInitializer.
                                        ssl-context
                                        (.longValue Integer/MAX_VALUE)
-                                       zero-copy?
+                                       false
                                        true
                                        handler)))
           address (InetSocketAddress. host ssl-port)

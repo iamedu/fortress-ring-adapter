@@ -39,7 +39,6 @@
     (response/write-ring-response ctx {:status 500})))
 
 (defn fhandler-channelRead0 [this ctx request]
-  (log/info "Aqui estoy si!")
   (let [{:keys [zero-copy? handler]} @(.state this)]
     (binding [writers/*zero-copy* zero-copy?]
       (->> request
