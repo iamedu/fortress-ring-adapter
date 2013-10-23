@@ -76,13 +76,15 @@
   :threads        - Number of threads (defaults to cores * 2)
   :thread-prefix  - Thread prefix (defaults to fortress-http
   :debug-requests - Wether to debug requests (defaults to false)"
-  [handler & {:keys [debug-requests]
-              :as options}]
+  ([handler]
+   (run-fortress handler {}))
+  ([handler {:keys [debug-requests]
+            :as options}]
   (let [options (merge default-options options)]
     (reset! fhandler/debug-request debug-requests)
     (if debug-requests
       (log/info "Setting up requests debug"))
-    (create-channel handler options)))
+    (create-channel handler options))))
 
 (defn stop-fortress [{:keys [group channel secure-channel]}]
   (.close channel)
