@@ -26,17 +26,22 @@
            :extends io.netty.channel.SimpleChannelInboundHandler
            :state state
            :init "init"
-           :constructors {[Boolean clojure.lang.IFn] []}
+           :constructors {[Boolean clojure.lang.IFn clojure.lang.IFn] []}
            :prefix "fhandler-")
 
-(defn fhandler-init [zero-copy? handler]
+(defn fhandler-init [zero-copy? handler error-fn]
   [[] (atom {:zero-copy? zero-copy?
-             :handler handler})])
+             :handler handler
+             :error-fn error-fn})])
 
 (defn fhandler-exceptionCaught [this ctx cause]
-  (log/error cause "Error occurred in Http I/O thread")
-  (when (-> ctx (.channel) (.isOpen))
-    (response/write-ring-response ctx {:status 500})))
+  (let [state (.state this)
+        {:keys [error-fn]} @state]
+  (if error-fn
+    (error-fn))  
+    (log/debug cause "Error occurred in Http I/O thread")
+    (when (-> ctx (.channel) (.isOpen))
+      (response/write-ring-response ctx {:status 500}))))
 
 (defn fhandler-channelRead0 [this ctx request]
   (let [{:keys [zero-copy? handler]} @(.state this)]
@@ -52,20 +57,21 @@
            :extends io.netty.channel.ChannelInitializer
            :state state
            :init "init"
-           :constructors {[javax.net.ssl.SSLContext Long Boolean Boolean clojure.lang.IFn] []}
+           :constructors {[javax.net.ssl.SSLContext Long Boolean Boolean clojure.lang.IFn clojure.lang.IFn] []}
            :prefix "finit-")
 
-(defn finit-init [ssl-context max-size zero-copy? ssl? handler]
+(defn finit-init [ssl-context max-size zero-copy? ssl? handler error-fn]
   [[] (atom {:max-size max-size
              :zero-copy? zero-copy?
              :ssl? ssl?
              :ssl-context ssl-context
+             :error-fn error-fn
              :handler handler})])
 
 (defn finit-initChannel [this ch]
   (let [pipeline (.pipeline ch)
         state (.state this)
-        {:keys [max-size handler zero-copy? ssl? ssl-context]} @state]
+        {:keys [max-size handler zero-copy? error-fn ssl? ssl-context]} @state]
 
     (if @debug-request
       (.addLast pipeline "logger" (LoggingHandler.)))
@@ -78,7 +84,8 @@
         (.addLast pipeline "chooser" (DefaultSpdyOrHttpChooser.
                                        (fortress.ring.handler.FortressHttpRequestHandler.
                                          zero-copy?
-                                         handler)
+                                         handler
+                                         error-fn)
                                        Integer/MAX_VALUE
                                        Integer/MAX_VALUE))))
 
@@ -90,5 +97,6 @@
         (.addLast "chunkedWriter"  (ChunkedWriteHandler.))
         (.addLast "http-handler" (fortress.ring.handler.FortressHttpRequestHandler.
                                    zero-copy?
-                                   handler))))))
+                                   handler
+                                   error-fn))))))
 

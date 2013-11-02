@@ -16,6 +16,7 @@
                       :port 3000
                       :ssl? false
                       :zero-copy? true
+                      :error-fn (fn [])
                       :thread-prefix "fortress-http"})
 
 (defn- random-thread-name [prefix]
@@ -26,7 +27,7 @@
     (newThread [thunk]
       (Thread. thunk (random-thread-name thread-name-prefix)))))
 
-(defn secure-channel-clone [bootstrap handler {:keys [host ssl? ssl-port zero-copy? ssl-context]}]
+(defn secure-channel-clone [bootstrap handler {:keys [host ssl? ssl-port zero-copy? ssl-context error-fn]}]
   (when (and ssl? ssl-port)
     (let [bootstrap (doto (.clone bootstrap)
                       (.childHandler (FortressInitializer.
@@ -34,7 +35,8 @@
                                        (.longValue Integer/MAX_VALUE)
                                        false
                                        true
-                                       handler)))
+                                       handler
+                                       error-fn)))
           address (InetSocketAddress. host ssl-port)
           future-channel (.bind bootstrap address)]
       (.syncUninterruptibly future-channel)
@@ -42,7 +44,7 @@
       {:future-secure-channel future-channel
        :secure-channel (.channel future-channel)})))
 
-(defn create-channel [handler {:keys [port threads thread-prefix host zero-copy?]
+(defn create-channel [handler {:keys [port threads thread-prefix host zero-copy? error-fn]
                                :as options}]
   (let [address (InetSocketAddress. host port)
         group (NioEventLoopGroup. threads
@@ -56,7 +58,8 @@
                                      (.longValue Integer/MAX_VALUE)
                                      zero-copy?
                                      false
-                                     handler)))
+                                     handler
+                                     error-fn)))
         future-channel (.bind bootstrap address)]
     (.syncUninterruptibly future-channel)
     (log/info "Channel started at port" port)
