@@ -10,7 +10,12 @@
             ChannelHandlerContext
             ChannelFutureListener]))
 
-(defn write-ring-response [^DefaultFullHttpRequest request ^ChannelHandlerContext context ring-response]
-  (let [status (HttpResponseStatus/valueOf (ring-response :status 200))
-        {:keys [body headers]} ring-response]
-    (w/write body headers (.getProtocolVersion request) status (.channel context))))
+(defn write-ring-response
+  ([^ChannelHandlerContext context ring-response]
+   (let [status (HttpResponseStatus/valueOf (ring-response :status 200))
+         {:keys [body headers]} ring-response]
+     (w/write body headers HttpVersion/HTTP_1_1 status (.channel context)))) 
+  ([^DefaultFullHttpRequest request ^ChannelHandlerContext context ring-response]
+   (let [status (HttpResponseStatus/valueOf (ring-response :status 200))
+         {:keys [body headers]} ring-response]
+     (w/write body headers (.getProtocolVersion request) status (.channel context)))))

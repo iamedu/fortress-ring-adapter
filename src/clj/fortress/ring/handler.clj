@@ -35,13 +35,17 @@
              :error-fn error-fn})])
 
 (defn fhandler-exceptionCaught [this ctx cause]
+  (log/debug cause "Error occurred in Http I/O thread")
   (let [state (.state this)
         {:keys [error-fn]} @state]
-  (if error-fn
-    (error-fn))  
-    (log/debug cause "Error occurred in Http I/O thread")
-    (when (-> ctx (.channel) (.isOpen))
-      (response/write-ring-response ctx {:status 500}))))
+    (try
+      (do
+        (if error-fn
+          (error-fn))  
+        (when (-> ctx (.channel) (.isOpen))
+          (response/write-ring-response ctx {:status 500})))
+      (catch Exception e
+        (log/fatal e "Error when handling exception" cause)))))
 
 (defn fhandler-channelRead0 [this ctx request]
   (let [{:keys [zero-copy? handler]} @(.state this)]
