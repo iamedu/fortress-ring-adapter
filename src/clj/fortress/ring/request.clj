@@ -49,12 +49,7 @@
     (keyword scheme)))
 
 (defn content-type [^DefaultFullHttpRequest request]
-  (if-let [type (HttpHeaders/getHeader request HttpHeaders$Names/CONTENT_TYPE)]
-    (-> type
-      (s/split #";")
-      (get 0)
-      s/trim
-      s/lower-case)))
+  (HttpHeaders/getHeader request HttpHeaders$Names/CONTENT_TYPE))
 
 (defn content-length [^DefaultFullHttpRequest request]
   (let [length (HttpHeaders/getContentLength request 0)]
