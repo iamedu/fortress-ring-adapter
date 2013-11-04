@@ -41,7 +41,7 @@
     (try
       (do
         (if error-fn
-          (error-fn))  
+          (error-fn ctx cause))  
         (when (-> ctx (.channel) (.isOpen))
           (response/write-ring-response ctx {:status 500})))
       (catch Exception e

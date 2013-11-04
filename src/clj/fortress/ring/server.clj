@@ -16,7 +16,7 @@
                       :port 3000
                       :ssl? false
                       :zero-copy? true
-                      :error-fn (fn [])
+                      :error-fn (fn [_ _])
                       :thread-prefix "fortress-http"})
 
 (defn- random-thread-name [prefix]
