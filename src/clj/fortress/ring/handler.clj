@@ -4,9 +4,10 @@
             [fortress.ring.request :as request]
             [fortress.ring.response :as response]) 
   (:import [fortress.ring.spdy DefaultServerProvider DefaultSpdyOrHttpChooser]
+           [fortress.ring.http MultipartDiskHandler]
            [io.netty.channel ChannelHandler$Sharable SimpleChannelInboundHandler]
            [io.netty.handler.stream ChunkedWriteHandler]
-           [io.netty.handler.codec.http HttpServerCodec HttpObjectAggregator HttpHeaders]
+           [io.netty.handler.codec.http DefaultHttpRequest HttpServerCodec HttpObjectAggregator HttpHeaders]
            [io.netty.handler.logging LoggingHandler]
            [io.netty.handler.ssl SslHandler]
            [org.eclipse.jetty.npn NextProtoNego]
@@ -48,13 +49,16 @@
         (log/fatal e "Error when handling exception" cause)))))
 
 (defn fhandler-channelRead0 [this ctx request]
-  (let [{:keys [zero-copy? handler]} @(.state this)]
+  (let [{:keys [zero-copy? handler]} @(.state this)
+        plain-request (if (instance? DefaultHttpRequest request)
+                        request
+                        (.getRequest request))]
     (binding [writers/*zero-copy* zero-copy?]
       (->> request
            (request/create-ring-request ctx)
            (handler)
-           (add-keep-alive request)
-           (response/write-ring-response request ctx)))))
+           (add-keep-alive plain-request)
+           (response/write-ring-response plain-request ctx)))))
 
 (gen-class :name ^{ChannelHandler$Sharable {}}
            fortress.ring.handler.FortressInitializer
@@ -97,6 +101,7 @@
       (doto
         pipeline
         (.addLast "codec" (HttpServerCodec.))
+        (.addLast "multipart" (MultipartDiskHandler. (java.io.File. "/tmp")))
         (.addLast "aggregator" (HttpObjectAggregator. max-size))
         (.addLast "chunkedWriter"  (ChunkedWriteHandler.))
         (.addLast "http-handler" (fortress.ring.handler.FortressHttpRequestHandler.

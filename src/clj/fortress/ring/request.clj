@@ -1,8 +1,10 @@
 (ns fortress.ring.request
   (:require [clojure.string :as s])
-  (:import [io.netty.buffer ByteBufInputStream]
+  (:import [fortress.ring.http DiskHttpWrapper]
+           [io.netty.buffer ByteBufInputStream]
            [io.netty.channel ChannelHandlerContext]
-           [io.netty.handler.codec.http HttpMethod DefaultFullHttpRequest HttpHeaders HttpHeaders$Names]))
+           [io.netty.handler.codec.http HttpMethod DefaultFullHttpRequest HttpHeaders HttpHeaders$Names]
+           [java.io FileInputStream]))
 
 (def method-mapping
   {HttpMethod/GET :get
@@ -64,7 +66,25 @@
         vals (map val headers)]
     (zipmap keys vals)))
 
-(defn create-ring-request [^ChannelHandlerContext context ^DefaultFullHttpRequest http-request]
+(defn create-multipart-ring-request [^ChannelHandlerContext context ^DiskHttpWrapper http-request]
+  (let [full-request (bean http-request)
+        http-request (:request full-request)
+        file-body (:body full-request)
+        [uri query] (url (.getUri http-request))]
+    {:body (FileInputStream. file-body)
+     :uri uri
+     :query-string query
+     :request-method (method (.getMethod http-request))
+     :server-name (server-name context http-request)
+     :server-port (.getPort (local-address context))
+     :remote-addr (remote-address context)
+     :scheme (scheme http-request)
+     :content-type (content-type http-request)
+     :content-length (content-length http-request)
+     :character-encoding (character-encoding http-request)
+     :headers (headers http-request)}))
+
+(defn create-simple-ring-request [^ChannelHandlerContext context ^DefaultFullHttpRequest http-request]
   (let [[uri query] (url (.getUri http-request))]
     {:body (ByteBufInputStream. (.content http-request))
      :uri uri
@@ -78,3 +98,8 @@
      :content-length (content-length http-request)
      :character-encoding (character-encoding http-request)
      :headers (headers http-request)}))
+
+(defn create-ring-request [^ChannelHandlerContext context http-request]
+  (if (instance? DefaultFullHttpRequest http-request)
+    (create-simple-ring-request context http-request)
+    (create-multipart-ring-request context http-request)))
