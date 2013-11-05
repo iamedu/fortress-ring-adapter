@@ -50,6 +50,14 @@
                                          :or {max-size (* 1024 1024)}
                                          :as options}]
   (let [address (InetSocketAddress. host port)
+        full-options (assoc options
+                            :port port
+                            :threads threads
+                            :thread-previx thread-prefix
+                            :host host
+                            :zero-copy? zero-copy?
+                            :error-fn error-fn
+                            :max-size max-size)
         group (NioEventLoopGroup. threads
                                   (thread-factory thread-prefix))
         bootstrap (doto (ServerBootstrap.)
@@ -71,7 +79,7 @@
     (merge {:future-channel future-channel
             :channel (.channel future-channel)
             :group group}
-           (secure-channel-clone bootstrap handler temp-path options))))
+           (secure-channel-clone bootstrap handler temp-path full-options))))
 
 (defn run-fortress
   "Creates a netty handler and starts it, receives a handler

@@ -98,8 +98,8 @@
                                          zero-copy?
                                          handler
                                          error-fn)
-                                       Integer/MAX_VALUE
-                                       Integer/MAX_VALUE
+                                       (.intValue max-size)
+                                       (.intValue max-size)
                                        tmp-dir-path
                                        build-listener))))
 

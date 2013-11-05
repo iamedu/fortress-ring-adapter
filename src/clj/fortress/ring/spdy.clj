@@ -29,7 +29,8 @@
     (.parentAddSpdyHandlers this ctx version)
     (.addBefore pipeline "spdyHttpDecoder" "instrumentedSpdyHttpDecoder" (InstrumentedSpdyHttpDecoder.
                                                                            version
-                                                                           max-spdy-content-length))
+                                                                           max-spdy-content-length
+                                                                           (java.io.File. temp-dir-path)))
     (.remove pipeline "spdyHttpDecoder")
     (.addBefore pipeline "httpRquestHandler" "chunkedWriter" (SpdyChunkedWriteHandler.))))
 
