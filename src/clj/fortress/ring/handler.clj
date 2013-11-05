@@ -99,7 +99,9 @@
                                          handler
                                          error-fn)
                                        Integer/MAX_VALUE
-                                       Integer/MAX_VALUE))))
+                                       Integer/MAX_VALUE
+                                       tmp-dir-path
+                                       build-listener))))
 
     (when-not (and ssl? ssl-context)
       (doto
