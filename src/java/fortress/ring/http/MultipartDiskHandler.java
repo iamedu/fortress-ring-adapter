@@ -15,13 +15,16 @@ public class MultipartDiskHandler extends MessageToMessageDecoder<HttpObject> {
 
     private FileOutputStream outputStream;
     private static final String CONTENT_TYPE = "Content-Type";
+    private static final String CONTENT_LENGTH = "Content-Length";
     private DefaultHttpRequest currentMessage;
     private boolean multipartRequest = false;
     private File tempDirectory;
     private File tempFile;
+    private long maxMemorySize;
 
-    public MultipartDiskHandler(File tempDirectory) {
+    public MultipartDiskHandler(File tempDirectory, long maxMemorySize) {
         this.tempDirectory = tempDirectory;
+        this.maxMemorySize = maxMemorySize;
     }
 
     @Override
@@ -44,7 +47,9 @@ public class MultipartDiskHandler extends MessageToMessageDecoder<HttpObject> {
         }
         
         if(message instanceof DefaultHttpRequest) {
-            handleMultipartMessage((DefaultHttpRequest)message);
+            if(!handleMultipartMessage((DefaultHttpRequest)message)) {
+                out.add(message);
+            }
         } else {
             writeContent((DefaultHttpContent)message);
         }
@@ -54,14 +59,20 @@ public class MultipartDiskHandler extends MessageToMessageDecoder<HttpObject> {
         }
     }
 
-    private void handleMultipartMessage(DefaultHttpRequest request) {
-        currentMessage = request;
-        multipartRequest = true;
-        tempFile = createFile();
-        try {
-            outputStream = new FileOutputStream(tempFile);
-        } catch(Exception ex) {
-            throw new RuntimeException(ex);
+    private boolean handleMultipartMessage(DefaultHttpRequest request) {
+        long contentLength = Long.parseLong(request.headers().get(CONTENT_LENGTH));
+        if(contentLength > maxMemorySize) {
+            currentMessage = request;
+            multipartRequest = true;
+            tempFile = createFile();
+            try {
+                outputStream = new FileOutputStream(tempFile);
+            } catch(Exception ex) {
+                throw new RuntimeException(ex);
+            }
+            return true;
+        } else {
+            return false;
         }
     }
 

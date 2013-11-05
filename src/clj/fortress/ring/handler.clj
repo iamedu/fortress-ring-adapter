@@ -101,7 +101,8 @@
       (doto
         pipeline
         (.addLast "codec" (HttpServerCodec.))
-        (.addLast "multipart" (MultipartDiskHandler. (java.io.File. "/tmp")))
+        (.addLast "multipart" (MultipartDiskHandler. (java.io.File. "/tmp")
+                                                     (* 1024 1024)))
         (.addLast "aggregator" (HttpObjectAggregator. max-size))
         (.addLast "chunkedWriter"  (ChunkedWriteHandler.))
         (.addLast "http-handler" (fortress.ring.handler.FortressHttpRequestHandler.
