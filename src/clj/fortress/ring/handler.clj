@@ -4,7 +4,7 @@
             [fortress.ring.request :as request]
             [fortress.ring.response :as response]) 
   (:import [fortress.ring.spdy DefaultServerProvider DefaultSpdyOrHttpChooser]
-           [fortress.ring.http MultipartDiskHandler]
+           [fortress.ring.http MultipartDiskHandler MultipartProgressListener]
            [io.netty.channel ChannelHandler$Sharable SimpleChannelInboundHandler]
            [io.netty.handler.stream ChunkedWriteHandler]
            [io.netty.handler.codec.http DefaultHttpRequest HttpServerCodec HttpObjectAggregator HttpHeaders]
@@ -76,6 +76,17 @@
              :error-fn error-fn
              :handler handler})])
 
+(defn build-listener []
+  (let [c (atom 0)]
+    (proxy [MultipartProgressListener] []
+      (uploadStarted [request]
+        (println (.. request (headers) (get "Content-Length")))
+        (println "Upload started"))
+      (bytesWritten [byteCount]
+        (swap! c + byteCount))
+      (uploadFinished []
+        (println "Upload finished with" @c "bytes")))))
+
 (defn finit-initChannel [this ch]
   (let [pipeline (.pipeline ch)
         state (.state this)
@@ -101,8 +112,9 @@
       (doto
         pipeline
         (.addLast "codec" (HttpServerCodec.))
-        (.addLast "multipart" (MultipartDiskHandler. (java.io.File. "/tmp")
-                                                     (* 1024 1024)))
+        (.addLast "multipart" (MultipartDiskHandler. (java.io.File. "/home/iamedu/tmp")
+                                                     (* 1024 1024)
+                                                     (build-listener)))
         (.addLast "aggregator" (HttpObjectAggregator. max-size))
         (.addLast "chunkedWriter"  (ChunkedWriteHandler.))
         (.addLast "http-handler" (fortress.ring.handler.FortressHttpRequestHandler.

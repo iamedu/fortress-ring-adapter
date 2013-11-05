@@ -13,18 +13,21 @@ import java.util.List;
 
 public class MultipartDiskHandler extends MessageToMessageDecoder<HttpObject> {
 
+    private MultipartProgressListener progressListener;
     private FileOutputStream outputStream;
     private static final String CONTENT_TYPE = "Content-Type";
     private static final String CONTENT_LENGTH = "Content-Length";
     private DefaultHttpRequest currentMessage;
     private boolean multipartRequest = false;
+    private boolean fileBasedUpload = false;
     private File tempDirectory;
     private File tempFile;
     private long maxMemorySize;
 
-    public MultipartDiskHandler(File tempDirectory, long maxMemorySize) {
+    public MultipartDiskHandler(File tempDirectory, long maxMemorySize, MultipartProgressListener progressListener) {
         this.tempDirectory = tempDirectory;
         this.maxMemorySize = maxMemorySize;
+        this.progressListener = progressListener;
     }
 
     @Override
@@ -47,40 +50,46 @@ public class MultipartDiskHandler extends MessageToMessageDecoder<HttpObject> {
         }
         
         if(message instanceof DefaultHttpRequest) {
-            if(!handleMultipartMessage((DefaultHttpRequest)message)) {
-                out.add(message);
-            }
+            handleMultipartMessage((DefaultHttpRequest)message);
         } else {
             writeContent((DefaultHttpContent)message);
         }
 
         if(message instanceof DefaultLastHttpContent) {
             handleEnding(out);
+        }        
+
+        if(!fileBasedUpload) {
+            out.add(message);
         }
     }
 
-    private boolean handleMultipartMessage(DefaultHttpRequest request) {
+    private void handleMultipartMessage(DefaultHttpRequest request) {
         long contentLength = Long.parseLong(request.headers().get(CONTENT_LENGTH));
-        if(contentLength > maxMemorySize) {
+        fileBasedUpload = contentLength > maxMemorySize;
+        multipartRequest = true;
+        if(fileBasedUpload) {
             currentMessage = request;
-            multipartRequest = true;
             tempFile = createFile();
             try {
                 outputStream = new FileOutputStream(tempFile);
             } catch(Exception ex) {
                 throw new RuntimeException(ex);
             }
-            return true;
-        } else {
-            return false;
+        }
+        if(multipartRequest) {
+            progressListener.uploadStarted(request);
         }
     }
 
     private void writeContent(DefaultHttpContent content) {
         try {
             int length = content.content().readableBytes();
-            content.content().readBytes(outputStream, length);
-            content.content().release();
+            if(fileBasedUpload) {
+                content.content().readBytes(outputStream, length);
+                content.content().release();
+            }
+            progressListener.bytesWritten(length);
         } catch(Exception ex) {
             if(outputStream != null) {
                 try {
@@ -96,8 +105,11 @@ public class MultipartDiskHandler extends MessageToMessageDecoder<HttpObject> {
 
     private void handleEnding(List<Object> out) {
         try {
-            outputStream.close();
-            out.add(new DiskHttpWrapper(currentMessage, tempFile));
+            if(fileBasedUpload) {
+                outputStream.close();
+                out.add(new DiskHttpWrapper(currentMessage, tempFile));
+            }
+            progressListener.uploadFinished();
         } catch(Exception ex) {
             throw new RuntimeException(ex);
         }
@@ -114,3 +126,4 @@ public class MultipartDiskHandler extends MessageToMessageDecoder<HttpObject> {
     }
 
 }
+
