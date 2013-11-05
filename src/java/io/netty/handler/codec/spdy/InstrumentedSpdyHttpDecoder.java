@@ -1,18 +1,18 @@
 /*
-* Copyright 2013 The Netty Project
-*
-* The Netty Project licenses this file to you under the Apache License,
-* version 2.0 (the "License"); you may not use this file except in compliance
-* with the License. You may obtain a copy of the License at:
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-* WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-* License for the specific language governing permissions and limitations
-* under the License.
-*/
+ * Copyright 2013 The Netty Project
+ *
+ * The Netty Project licenses this file to you under the Apache License,
+ * version 2.0 (the "License"); you may not use this file except in compliance
+ * with the License. You may obtain a copy of the License at:
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ */
 package io.netty.handler.codec.spdy;
 
 import io.netty.buffer.ByteBuf;
@@ -34,9 +34,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
-* Decodes {@link SpdySynStreamFrame}s, {@link SpdySynReplyFrame}s,
-* and {@link SpdyDataFrame}s into {@link FullHttpRequest}s and {@link FullHttpResponse}s.
-*/
+ * Decodes {@link SpdySynStreamFrame}s, {@link SpdySynReplyFrame}s,
+ * and {@link SpdyDataFrame}s into {@link FullHttpRequest}s and {@link FullHttpResponse}s.
+ */
 public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFrame> {
 
     private final int spdyVersion;
@@ -44,26 +44,26 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
     private final Map<Integer, FullHttpMessage> messageMap;
 
     /**
-* Creates a new instance.
-*
-* @param version the protocol version
-* @param maxContentLength the maximum length of the message content.
-* If the length of the message content exceeds this value,
-* a {@link TooLongFrameException} will be raised.
-*/
+     * Creates a new instance.
+     *
+     * @param version the protocol version
+     * @param maxContentLength the maximum length of the message content.
+     *        If the length of the message content exceeds this value,
+     *        a {@link TooLongFrameException} will be raised.
+     */
     public InstrumentedSpdyHttpDecoder(int version, int maxContentLength) {
         this(version, maxContentLength, new HashMap<Integer, FullHttpMessage>());
     }
 
     /**
-* Creates a new instance with the specified parameters.
-*
-* @param version the protocol version
-* @param maxContentLength the maximum length of the message content.
-* If the length of the message content exceeds this value,
-* a {@link TooLongFrameException} will be raised.
-* @param messageMap the {@link Map} used to hold partially received messages.
-*/
+     * Creates a new instance with the specified parameters.
+     *
+     * @param version the protocol version
+     * @param maxContentLength the maximum length of the message content.
+     *        If the length of the message content exceeds this value,
+     *        a {@link TooLongFrameException} will be raised.
+     * @param messageMap the {@link Map} used to hold partially received messages.
+     */
     protected InstrumentedSpdyHttpDecoder(int version, int maxContentLength, Map<Integer, FullHttpMessage> messageMap) {
         if (version < SpdyConstants.SPDY_MIN_VERSION || version > SpdyConstants.SPDY_MAX_VERSION) {
             throw new IllegalArgumentException(
@@ -292,8 +292,8 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
     private static FullHttpRequest createHttpRequest(int spdyVersion, SpdyHeadersFrame requestFrame)
             throws Exception {
         // Create the first line of the request from the name/value pairs
-        HttpMethod method = SpdyHeaders.getMethod(spdyVersion, requestFrame);
-        String url = SpdyHeaders.getUrl(spdyVersion, requestFrame);
+        HttpMethod  method      = SpdyHeaders.getMethod(spdyVersion, requestFrame);
+        String      url         = SpdyHeaders.getUrl(spdyVersion, requestFrame);
         HttpVersion httpVersion = SpdyHeaders.getVersion(spdyVersion, requestFrame);
         SpdyHeaders.removeMethod(spdyVersion, requestFrame);
         SpdyHeaders.removeUrl(spdyVersion, requestFrame);

@@ -3,6 +3,7 @@
            [fortress.ring.spdy SpdyChunkedWriteHandler]
            [fortress.ring.http MultipartDiskHandler]
            [io.netty.handler.stream ChunkedWriteHandler]
+           [io.netty.handler.codec.spdy InstrumentedSpdyHttpDecoder]
            [org.eclipse.jetty.npn NextProtoNego]))
 
 (gen-class :name fortress.ring.spdy.DefaultSpdyOrHttpChooser
@@ -22,8 +23,14 @@
                                                       :listener-builder listener-builder}])
 
 (defn ch-addSpdyHandlers [this ctx version]
-  (let [pipeline (NettyUtil/pipeline ctx)]
+  (let [state (.state this)
+        {:keys [max-spdy-content-length temp-dir-path listener-builder]} state
+        pipeline (NettyUtil/pipeline ctx)]
     (.parentAddSpdyHandlers this ctx version)
+    (.addBefore pipeline "spdyHttpDecoder" "instrumentedSpdyHttpDecoder" (InstrumentedSpdyHttpDecoder.
+                                                                           version
+                                                                           max-spdy-content-length))
+    (.remove pipeline "spdyHttpDecoder")
     (.addBefore pipeline "httpRquestHandler" "chunkedWriter" (SpdyChunkedWriteHandler.))))
 
 (defn ch-addHttpHandlers [this ctx]
@@ -65,7 +72,7 @@
     (swap! state assoc :protocol "http/1.1")))
 
 (defn sp-protocols [this]
-  [#_"spdy/3" #_"spdy/2" "http/1.1"])
+  ["spdy/3" "spdy/2" "http/1.1"])
 
 (defn sp-protocolSelected [this protocol]
   (let [state (.state this)]
