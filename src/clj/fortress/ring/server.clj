@@ -27,16 +27,18 @@
     (newThread [thunk]
       (Thread. thunk (random-thread-name thread-name-prefix)))))
 
-(defn secure-channel-clone [bootstrap handler {:keys [host ssl? ssl-port zero-copy? ssl-context error-fn]}]
+(defn secure-channel-clone [bootstrap handler temp-path {:keys [host ssl? ssl-port zero-copy? max-size ssl-context error-fn]}]
   (when (and ssl? ssl-port)
     (let [bootstrap (doto (.clone bootstrap)
                       (.childHandler (FortressInitializer.
                                        ssl-context
-                                       (.longValue Integer/MAX_VALUE)
+                                       max-size
                                        false
                                        true
                                        handler
-                                       error-fn)))
+                                       error-fn
+                                       nil
+                                       temp-path)))
           address (InetSocketAddress. host ssl-port)
           future-channel (.bind bootstrap address)]
       (.syncUninterruptibly future-channel)
@@ -44,8 +46,9 @@
       {:future-secure-channel future-channel
        :secure-channel (.channel future-channel)})))
 
-(defn create-channel [handler {:keys [port threads thread-prefix host zero-copy? error-fn]
-                               :as options}]
+(defn create-channel [handler temp-path {:keys [port threads thread-prefix host zero-copy? error-fn max-size]
+                                         :or {max-size (* 1024 1024)}
+                                         :as options}]
   (let [address (InetSocketAddress. host port)
         group (NioEventLoopGroup. threads
                                   (thread-factory thread-prefix))
@@ -55,18 +58,20 @@
                     (.childOption ChannelOption/SO_KEEPALIVE true)
                     (.childHandler (FortressInitializer.
                                      nil
-                                     (.longValue Integer/MAX_VALUE)
+                                     max-size
                                      zero-copy?
                                      false
                                      handler
-                                     error-fn)))
+                                     error-fn
+                                     nil
+                                     temp-path)))
         future-channel (.bind bootstrap address)]
     (.syncUninterruptibly future-channel)
     (log/info "Channel started at port" port)
     (merge {:future-channel future-channel
             :channel (.channel future-channel)
             :group group}
-           (secure-channel-clone bootstrap handler options))))
+           (secure-channel-clone bootstrap handler temp-path options))))
 
 (defn run-fortress
   "Creates a netty handler and starts it, receives a handler
@@ -80,14 +85,16 @@
   :thread-prefix  - Thread prefix (defaults to fortress-http
   :debug-requests - Wether to debug requests (defaults to false)"
   ([handler]
-   (run-fortress handler {}))
-  ([handler {:keys [debug-requests]
-            :as options}]
-  (let [options (merge default-options options)]
-    (reset! fhandler/debug-request debug-requests)
-    (if debug-requests
-      (log/info "Setting up requests debug"))
-    (create-channel handler options))))
+   (run-fortress handler (System/getProperty "java.io.tmpdir")))
+  ([handler temp-path]
+   (run-fortress handler temp-path {}))
+  ([handler temp-path {:keys [debug-requests]
+                       :as options}]
+   (let [options (merge default-options options)]
+     (reset! fhandler/debug-request debug-requests)
+     (if debug-requests
+       (log/info "Setting up requests debug"))
+     (create-channel handler temp-path options))))
 
 (defn stop-fortress [{:keys [group channel secure-channel]}]
   (.close channel)

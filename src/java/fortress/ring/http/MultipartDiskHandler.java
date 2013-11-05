@@ -77,7 +77,7 @@ public class MultipartDiskHandler extends MessageToMessageDecoder<HttpObject> {
                 throw new RuntimeException(ex);
             }
         }
-        if(multipartRequest) {
+        if(multipartRequest && progressListener != null) {
             progressListener.uploadStarted(request);
         }
     }
@@ -89,7 +89,9 @@ public class MultipartDiskHandler extends MessageToMessageDecoder<HttpObject> {
                 content.content().readBytes(outputStream, length);
                 content.content().release();
             }
-            progressListener.bytesWritten(length);
+            if(progressListener != null) {
+                progressListener.bytesWritten(length);
+            }
         } catch(Exception ex) {
             if(outputStream != null) {
                 try {
@@ -109,7 +111,9 @@ public class MultipartDiskHandler extends MessageToMessageDecoder<HttpObject> {
                 outputStream.close();
                 out.add(new DiskHttpWrapper(currentMessage, tempFile));
             }
-            progressListener.uploadFinished();
+            if(progressListener != null) {
+                progressListener.uploadFinished();
+            }
         } catch(Exception ex) {
             throw new RuntimeException(ex);
         }

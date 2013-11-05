@@ -4,7 +4,7 @@
             [fortress.ring.request :as request]
             [fortress.ring.response :as response]) 
   (:import [fortress.ring.spdy DefaultServerProvider DefaultSpdyOrHttpChooser]
-           [fortress.ring.http MultipartDiskHandler MultipartProgressListener]
+           [fortress.ring.http MultipartDiskHandler]
            [io.netty.channel ChannelHandler$Sharable SimpleChannelInboundHandler]
            [io.netty.handler.stream ChunkedWriteHandler]
            [io.netty.handler.codec.http DefaultHttpRequest HttpServerCodec HttpObjectAggregator HttpHeaders]
@@ -65,32 +65,25 @@
            :extends io.netty.channel.ChannelInitializer
            :state state
            :init "init"
-           :constructors {[javax.net.ssl.SSLContext Long Boolean Boolean clojure.lang.IFn clojure.lang.IFn] []}
+           :constructors {[javax.net.ssl.SSLContext Long Boolean Boolean clojure.lang.IFn clojure.lang.IFn clojure.lang.IFn java.lang.String] []}
            :prefix "finit-")
 
-(defn finit-init [ssl-context max-size zero-copy? ssl? handler error-fn]
+(defn finit-init [ssl-context max-size zero-copy? ssl? handler error-fn build-listener tmp-dir-path]
   [[] (atom {:max-size max-size
              :zero-copy? zero-copy?
              :ssl? ssl?
              :ssl-context ssl-context
              :error-fn error-fn
-             :handler handler})])
-
-(defn build-listener []
-  (let [c (atom 0)]
-    (proxy [MultipartProgressListener] []
-      (uploadStarted [request]
-        (println (.. request (headers) (get "Content-Length")))
-        (println "Upload started"))
-      (bytesWritten [byteCount]
-        (swap! c + byteCount))
-      (uploadFinished []
-        (println "Upload finished with" @c "bytes")))))
+             :handler handler
+             :build-listener build-listener
+             :tmp-dir-path tmp-dir-path})])
 
 (defn finit-initChannel [this ch]
   (let [pipeline (.pipeline ch)
         state (.state this)
-        {:keys [max-size handler zero-copy? error-fn ssl? ssl-context]} @state]
+        {:keys [max-size handler zero-copy?
+                error-fn ssl? ssl-context
+                build-listener tmp-dir-path]} @state]
 
     (if @debug-request
       (.addLast pipeline "logger" (LoggingHandler.)))
@@ -112,9 +105,10 @@
       (doto
         pipeline
         (.addLast "codec" (HttpServerCodec.))
-        (.addLast "multipart" (MultipartDiskHandler. (java.io.File. "/home/iamedu/tmp")
-                                                     (* 1024 1024)
-                                                     (build-listener)))
+        (.addLast "multipart" (MultipartDiskHandler. (java.io.File. tmp-dir-path)
+                                                     max-size
+                                                     (if-not (nil? build-listener)
+                                                       (build-listener))))
         (.addLast "aggregator" (HttpObjectAggregator. max-size))
         (.addLast "chunkedWriter"  (ChunkedWriteHandler.))
         (.addLast "http-handler" (fortress.ring.handler.FortressHttpRequestHandler.
