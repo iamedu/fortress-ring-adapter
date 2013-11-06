@@ -43,7 +43,7 @@
         pipeline (NettyUtil/pipeline ctx)]
     (.parentAddHttpHandlers this ctx)
     (.addBefore pipeline "httpRquestHandler" "chunkedWriter" (ChunkedWriteHandler.))  
-    (.addBefore pipeline "chunkedWriter" "multipart" (MultipartDiskHandler. (java.io.File. temp-dir-path)
+    (.addAfter pipeline "httpRquestDecoder" "multipart" (MultipartDiskHandler. (java.io.File. temp-dir-path)
                                                                             max-http-content-length
                                                                             (if-not (nil? listener-builder)
                                                                               (listener-builder))))))
