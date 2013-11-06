@@ -308,9 +308,9 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
                     DefaultHttpRequest request = new DefaultHttpRequest(fullRequest.getProtocolVersion(),
                             fullRequest.getMethod(),
                             fullRequest.getUri());
-                    HttpHeaders.setContentLength(request, wrapper.getTmpFile().length());
                     request.headers().add(fullHttpMessage.headers());
                     wrapper.getOutputStream().close();
+                    HttpHeaders.setContentLength(request, wrapper.getTmpFile().length());
                     removeMessage(streamId);
                     out.add(new DiskHttpWrapper(request, wrapper.getTmpFile()));
                 }

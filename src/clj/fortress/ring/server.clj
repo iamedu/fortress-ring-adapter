@@ -16,6 +16,7 @@
                       :port 3000
                       :ssl? false
                       :zero-copy? true
+                      :temp-path (System/getProperty ":ava.io.tmpdir")
                       :error-fn (fn [_ _])
                       :thread-prefix "fortress-http"})
 
@@ -93,11 +94,9 @@
   :thread-prefix  - Thread prefix (defaults to fortress-http
   :debug-requests - Wether to debug requests (defaults to false)"
   ([handler]
-   (run-fortress handler (System/getProperty "java.io.tmpdir")))
-  ([handler temp-path]
-   (run-fortress handler temp-path {}))
-  ([handler temp-path {:keys [debug-requests]
-                       :as options}]
+   (run-fortress handler {}))
+  ([handler {:keys [debug-requests temp-path]
+             :as options}]
    (let [options (merge default-options options)]
      (reset! fhandler/debug-request debug-requests)
      (if debug-requests

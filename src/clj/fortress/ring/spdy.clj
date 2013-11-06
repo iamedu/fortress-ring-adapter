@@ -1,6 +1,6 @@
 (ns fortress.ring.spdy
   (:import [fortress.util NettyUtil]
-           [fortress.ring.spdy SpdyChunkedWriteHandler]
+           [fortress.ring.spdy SpdyChunkedWriteHandler SpdyResponseStreamIdHandler]
            [fortress.ring.http MultipartDiskHandler]
            [io.netty.handler.stream ChunkedWriteHandler]
            [io.netty.handler.codec.spdy InstrumentedSpdyHttpDecoder]
@@ -32,6 +32,8 @@
                                                                            max-spdy-content-length
                                                                            (java.io.File. temp-dir-path)))
     (.remove pipeline "spdyHttpDecoder")
+    (.addBefore pipeline "spdyStreamIdHandler" "fortressSpdyStreamIdHandler" (SpdyResponseStreamIdHandler.))
+    (.remove pipeline "spdyStreamIdHandler")
     (.addBefore pipeline "httpRquestHandler" "chunkedWriter" (SpdyChunkedWriteHandler.))))
 
 (defn ch-addHttpHandlers [this ctx]
