@@ -44,7 +44,7 @@
         (if error-fn
           (error-fn ctx cause))  
         (when (-> ctx (.channel) (.isOpen))
-          (response/write-ring-response ctx {:status 500})))
+          (response/write-ring-response nil ctx {:status 500})))
       (catch Exception e
         (log/fatal e "Error when handling exception" cause)))))
 
