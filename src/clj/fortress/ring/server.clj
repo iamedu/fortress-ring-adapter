@@ -2,14 +2,15 @@
   (:use fortress.util.clojure)
   (:require [clojure.tools.logging :as log]
             [fortress.ring.handler :as fhandler]
-            [fortress.ring.writers :as writers])
+            [fortress.ring.writers :as writers]
+            [clojure.java.io :as io])
   (:import [io.netty.bootstrap ServerBootstrap]
            [io.netty.channel ChannelOption]
            [io.netty.channel.nio NioEventLoopGroup]
            [io.netty.channel.socket.nio NioServerSocketChannel]
            [fortress.ring.handler FortressInitializer]
            [java.net InetSocketAddress]
-           [java.util.concurrent ThreadFactory]))
+           [java.util.concurrent ThreadFactory Executors TimeUnit]))
 
 (def default-options {:threads 0
                       :host "0.0.0.0"
@@ -27,6 +28,34 @@
   (proxy [ThreadFactory] []
     (newThread [thunk]
       (Thread. thunk (random-thread-name thread-name-prefix)))))
+
+(defonce deletion-executor
+  (Executors/newSingleThreadScheduledExecutor
+    (thread-factory "fortress-deleter")))
+
+(defn delete-files
+  "Delete files older than 15 minutes in temp path"
+  [path]
+  (fn []
+    (let [file (io/file path)
+          fs (file-seq file)]
+      (try
+        (doseq [f fs]
+          (if (and (.isFile f)
+                   (.startsWith (.getName f) "fortress")
+                   (> (- (System/currentTimeMillis)
+                         (.lastModified f))
+                      (* 15 60 1000)))
+            (io/delete-file f)))
+        (catch Exception e
+          (.printStackTrace e))))))
+
+(defn start-deleting [path]
+  (.scheduleAtFixedRate deletion-executor
+                        (delete-files path)
+                        15
+                        5
+                        TimeUnit/MINUTES))
 
 (defn secure-channel-clone [bootstrap handler temp-path {:keys [host ssl? ssl-port zero-copy? max-size ssl-context error-fn]}]
   (when (and ssl? ssl-port)
@@ -97,6 +126,7 @@
    (run-fortress handler {}))
   ([handler {:keys [debug-requests temp-path]
              :as options}]
+   (start-deleting temp-path)
    (let [options (merge default-options options)]
      (reset! fhandler/debug-request debug-requests)
      (if debug-requests
