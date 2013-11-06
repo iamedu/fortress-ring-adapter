@@ -34,8 +34,7 @@
                                                                            listener-builder))
     (.remove pipeline "spdyHttpDecoder")
     (.addBefore pipeline "spdyStreamIdHandler" "fortressSpdyStreamIdHandler" (SpdyResponseStreamIdHandler.))
-    (.remove pipeline "spdyStreamIdHandler")
-    (.addBefore pipeline "httpRquestHandler" "chunkedWriter" (SpdyChunkedWriteHandler.))))
+    (.remove pipeline "spdyStreamIdHandler")))
 
 (defn ch-addHttpHandlers [this ctx]
   (let [state (.state this)
