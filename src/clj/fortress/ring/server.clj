@@ -57,7 +57,7 @@
                         5
                         TimeUnit/MINUTES))
 
-(defn secure-channel-clone [bootstrap handler temp-path {:keys [host ssl? ssl-port zero-copy? max-size ssl-context error-fn]}]
+(defn secure-channel-clone [bootstrap handler temp-path {:keys [host ssl? ssl-port zero-copy? listener-builder max-size ssl-context error-fn]}]
   (when (and ssl? ssl-port)
     (let [bootstrap (doto (.clone bootstrap)
                       (.childHandler (FortressInitializer.
@@ -67,7 +67,7 @@
                                        true
                                        handler
                                        error-fn
-                                       nil
+                                       listener-builder
                                        temp-path)))
           address (InetSocketAddress. host ssl-port)
           future-channel (.bind bootstrap address)]
@@ -76,7 +76,7 @@
       {:future-secure-channel future-channel
        :secure-channel (.channel future-channel)})))
 
-(defn create-channel [handler temp-path {:keys [port threads thread-prefix host zero-copy? error-fn max-size]
+(defn create-channel [handler temp-path {:keys [port threads thread-prefix host zero-copy? error-fn listener-builder max-size]
                                          :or {max-size (* 1024 1024)}
                                          :as options}]
   (let [address (InetSocketAddress. host port)
@@ -87,6 +87,7 @@
                             :host host
                             :zero-copy? zero-copy?
                             :error-fn error-fn
+                            :listener-builder listener-builder
                             :max-size max-size)
         group (NioEventLoopGroup. threads
                                   (thread-factory thread-prefix))
@@ -101,7 +102,7 @@
                                      false
                                      handler
                                      error-fn
-                                     nil
+                                     listener-builder
                                      temp-path)))
         future-channel (.bind bootstrap address)]
     (.syncUninterruptibly future-channel)
@@ -114,14 +115,16 @@
 (defn run-fortress
   "Creates a netty handler and starts it, receives a handler
   and a map of options. These are the supported options:
-  :port           - The port to listen on (defaults to 3000)
-  :host           - Host to listen to (defaults to 0.0.0.0)
-  :ssl-port       - The SSL por to listen on 
-  :ssl?           - Allows to handle https (defaults to false)
-  :ssl-context    - SSL Context
-  :threads        - Number of threads (defaults to cores * 2)
-  :thread-prefix  - Thread prefix (defaults to fortress-http
-  :debug-requests - Wether to debug requests (defaults to false)"
+  :port             - The port to listen on (defaults to 3000)
+  :host             - Host to listen to (defaults to 0.0.0.0)
+  :ssl-port         - The SSL por to listen on 
+  :ssl?             - Allows to handle https (defaults to false)
+  :ssl-context      - SSL Context
+  :threads          - Number of threads (defaults to cores * 2)
+  :thread-prefix    - Thread prefix (defaults to fortress-http
+  :temp-path        - Path to store temporary files
+  :listneer-builder - Build a listener for file uploads
+  :debug-requests   - Wether to debug requests (defaults to false)"
   ([handler]
    (run-fortress handler {}))
   ([handler {:keys [debug-requests temp-path]

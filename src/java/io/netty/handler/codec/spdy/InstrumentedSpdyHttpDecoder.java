@@ -31,6 +31,9 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 
 import fortress.ring.http.DiskHttpWrapper;
+import fortress.ring.http.MultipartProgressListener;
+
+import clojure.lang.IFn;
 
 import java.util.HashMap;
 import java.util.List;
@@ -50,6 +53,7 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
     private final Map<Integer, FullHttpMessage> messageMap;
     private final Map<Integer, MultipartMessageWrapper> wrapperMap;
     private File tempDirectory;
+    private IFn listenerBuilder;
 
     /**
      * Creates a new instance.
@@ -59,8 +63,8 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
      *        If the length of the message content exceeds this value,
      *        a {@link TooLongFrameException} will be raised.
      */
-    public InstrumentedSpdyHttpDecoder(int version, int maxContentLength, File tempDirectory) {
-        this(version, maxContentLength, tempDirectory, new HashMap<Integer, FullHttpMessage>(), new HashMap<Integer, MultipartMessageWrapper>());
+    public InstrumentedSpdyHttpDecoder(int version, int maxContentLength, File tempDirectory, IFn listenerBuilder) {
+        this(version, maxContentLength, tempDirectory, new HashMap<Integer, FullHttpMessage>(), new HashMap<Integer, MultipartMessageWrapper>(), listenerBuilder);
     }
 
     /**
@@ -72,7 +76,7 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
      *        a {@link TooLongFrameException} will be raised.
      * @param messageMap the {@link Map} used to hold partially received messages.
      */
-    protected InstrumentedSpdyHttpDecoder(int version, int maxContentLength, File tempDirectory, Map<Integer, FullHttpMessage> messageMap, Map<Integer, MultipartMessageWrapper> wrapperMap) {
+    protected InstrumentedSpdyHttpDecoder(int version, int maxContentLength, File tempDirectory, Map<Integer, FullHttpMessage> messageMap, Map<Integer, MultipartMessageWrapper> wrapperMap, IFn listenerBuilder) {
         if (version < SpdyConstants.SPDY_MIN_VERSION || version > SpdyConstants.SPDY_MAX_VERSION) {
             throw new IllegalArgumentException(
                     "unsupported version: " + version);
@@ -86,6 +90,7 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
         this.tempDirectory = tempDirectory;
         this.messageMap = messageMap;
         this.wrapperMap = wrapperMap;
+        this.listenerBuilder = listenerBuilder;
     }
 
     protected FullHttpMessage putMessage(int streamId, FullHttpMessage message) {
@@ -281,6 +286,7 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
             }
 
             memoryBasedUpload = wrapper != null && !wrapper.isFileBasedUpload();
+            int length = spdyDataFrame.content().readableBytes();
 
             if(memoryBasedUpload) {
                 ByteBuf content = fullHttpMessage.content();
@@ -300,7 +306,6 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
                     out.add(fullHttpMessage);
                 }
             } else {
-                int length = spdyDataFrame.content().readableBytes();
                 spdyDataFrame.content().readBytes(wrapper.getOutputStream(), length);
 
                 if (spdyDataFrame.isLast()) {
@@ -315,6 +320,15 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
                     out.add(new DiskHttpWrapper(request, wrapper.getTmpFile()));
                 }
             }
+
+            if(wrapper != null && wrapper.getProgressListener() != null) {
+                wrapper.getProgressListener().bytesWritten(length);
+                if(spdyDataFrame.isLast()) {
+                    wrapper.getProgressListener().uploadFinished();
+                }
+            }
+
+
 
         } else if (msg instanceof SpdyRstStreamFrame) {
 
@@ -389,6 +403,11 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
         File tmpFile = null;
         FileOutputStream outputStream = null;
         MultipartMessageWrapper wrapper;
+        MultipartProgressListener listener = null;
+        if(listenerBuilder != null) { 
+            listener = (MultipartProgressListener) listenerBuilder.invoke();
+            listener.uploadStarted(req);
+        }
         if(fileBasedUpload) {
             try {
                 tmpFile = createFile();
@@ -397,7 +416,7 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
                 throw new RuntimeException(ex);
             }
         }
-        wrapper = new MultipartMessageWrapper(tmpFile, outputStream, null, fileBasedUpload);
+        wrapper = new MultipartMessageWrapper(tmpFile, outputStream, listener, fileBasedUpload);
         wrapperMap.put(streamId, wrapper);
     }
 

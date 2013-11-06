@@ -30,7 +30,8 @@
     (.addBefore pipeline "spdyHttpDecoder" "instrumentedSpdyHttpDecoder" (InstrumentedSpdyHttpDecoder.
                                                                            version
                                                                            max-spdy-content-length
-                                                                           (java.io.File. temp-dir-path)))
+                                                                           (java.io.File. temp-dir-path)
+                                                                           listener-builder))
     (.remove pipeline "spdyHttpDecoder")
     (.addBefore pipeline "spdyStreamIdHandler" "fortressSpdyStreamIdHandler" (SpdyResponseStreamIdHandler.))
     (.remove pipeline "spdyStreamIdHandler")
