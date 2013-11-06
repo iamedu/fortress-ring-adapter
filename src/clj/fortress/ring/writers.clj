@@ -40,7 +40,7 @@
                                                   (log/error (.cause f) "Error when handling stream response"))
                                                 (.close stream)))]
     (.addListener future listener)
-    (.addListener future ChannelFutureListener/CLOSE)))
+    #_(.addListener future ChannelFutureListener/CLOSE)))
 
 (defn- write-response [^HttpResponse response ^Channel channel]
   (-> (.write channel response)
@@ -73,6 +73,7 @@
 (extend-type InputStream
   ResponseWriter
   (write [body headers version status ^Channel channel]
+    (println headers)
     (let [response (DefaultHttpResponse. version status)]
       (set-headers response headers)
       (.write channel response)
