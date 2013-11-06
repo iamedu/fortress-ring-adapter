@@ -17,7 +17,6 @@
                       :port 3000
                       :ssl? false
                       :zero-copy? true
-                      :temp-path (System/getProperty ":ava.io.tmpdir")
                       :error-fn (fn [_ _])
                       :thread-prefix "fortress-http"})
 
@@ -128,6 +127,7 @@
   ([handler]
    (run-fortress handler {}))
   ([handler {:keys [debug-requests temp-path]
+             :or {temp-path (System/getProperty "java.io.tmpdir")}
              :as options}]
    (start-deleting temp-path)
    (let [options (merge default-options options)]
