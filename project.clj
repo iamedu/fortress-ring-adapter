@@ -1,4 +1,4 @@
-(defproject fortress-ring-adapter "0.1.0-SNAPSHOT"
+(defproject org.clojars.iamedu/fortress-ring-adapter "0.1.0-SNAPSHOT"
   :description "Ring adapter for netty 4 (part of the fortress distribution)"
   :url "https://github.com/iamedu/fortress-ring-adapter"
   :license {:name "Eclipse Public License"
