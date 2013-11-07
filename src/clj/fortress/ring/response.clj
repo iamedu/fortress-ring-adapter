@@ -15,7 +15,8 @@
         {:keys [body headers]} ring-response]
     (w/write body
              headers
-             (and request (.getProtocolVersion request))
+             (or (and request (.getProtocolVersion request))
+                 HttpVersion/HTTP_1_1)
              status
              (and request (w/spdy-request? request))
              (.channel context))))
