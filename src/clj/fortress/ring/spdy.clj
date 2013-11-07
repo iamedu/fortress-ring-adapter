@@ -1,6 +1,6 @@
 (ns fortress.ring.spdy
   (:import [fortress.util NettyUtil]
-           [fortress.ring.spdy SpdyChunkedWriteHandler SpdyResponseStreamIdHandler]
+           [fortress.ring.spdy SpdyChunkedWriteHandler SpdyResponseStreamIdHandler HttpsSchemeAdder]
            [fortress.ring.http MultipartDiskHandler]
            [io.netty.handler.stream ChunkedWriteHandler]
            [io.netty.handler.codec.spdy InstrumentedSpdyHttpDecoder]
@@ -46,7 +46,8 @@
     (.addAfter pipeline "httpRquestDecoder" "multipart" (MultipartDiskHandler. (java.io.File. temp-dir-path)
                                                                             max-http-content-length
                                                                             (if-not (nil? listener-builder)
-                                                                              (listener-builder))))))
+                                                                              (listener-builder))))
+    (.addAfter pipeline "multipart" "schemer" (HttpsSchemeAdder.))))
 
 (defn ch-getProtocol [this engine]
   (let [provider (NextProtoNego/get engine)
