@@ -285,7 +285,9 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
                 return;
             }
 
-            memoryBasedUpload = wrapper != null && !wrapper.isFileBasedUpload();
+            if(wrapper != null) {
+                memoryBasedUpload = !wrapper.isFileBasedUpload();
+            }
             int length = spdyDataFrame.content().readableBytes();
 
             if(memoryBasedUpload) {
@@ -314,6 +316,7 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
                             fullRequest.getMethod(),
                             fullRequest.getUri());
                     request.headers().add(fullHttpMessage.headers());
+                    request.headers().add("X-Scheme", "https");
                     wrapper.getOutputStream().close();
                     HttpHeaders.setContentLength(request, wrapper.getTmpFile().length());
                     removeMessage(streamId);
@@ -363,6 +366,7 @@ public class InstrumentedSpdyHttpDecoder extends MessageToMessageDecoder<SpdyFra
         for (Map.Entry<String, String> e: requestFrame.headers()) {
             req.headers().add(e.getKey(), e.getValue());
         }
+        req.headers().add("X-Scheme", "https");
 
         // The Connection and Keep-Alive headers are no longer valid
         HttpHeaders.setKeepAlive(req, true);
