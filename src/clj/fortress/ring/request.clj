@@ -20,7 +20,7 @@
 (defn method [^HttpMethod method]
   (if-let [method-keyword (method-mapping method)]
     method-keyword
-    (-> method (.getName) (s/lower-case) (keyword))))
+    (-> method (.name) (s/lower-case) (keyword))))
 
 (defn url [request-uri]
   (let [regex #"([^?]+)[?]?([^?]+)?"
